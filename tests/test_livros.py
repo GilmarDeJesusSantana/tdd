@@ -92,26 +92,34 @@ class Dummy:
     pass
 
 
-def duble_de_urlopen_que_levanta_execao_http_error(url, timeout):
+def stub_de_urlopen_que_levanta_execao_http_error(url, timeout):
     fp = mock_open
-    fp.close = Dummy
-    raise HTTPError(Dummy(), Dummy(), 'Mensagem de Error', Dummy(), fp)
+    fp.close = Mock
+    raise HTTPError(Mock(), Mock(), 'Mensagem de Error', Mock(), fp)
 
 
-def test_executar_requisicao_levanta_excecao_do_tipo_http_error():
+# def test_executar_requisicao_levanta_excecao_do_tipo_http_error():
+#     with patch('colecao.livros.urlopen', stub_de_urlopen_que_levanta_execao_http_error):
+#         with pytest.raises(HTTPError) as excecao:
+#             executar_requisicao('http://')
+#         assert 'Mensagem de Error' in str(excecao.value)
+#
+#
+# @patch('colecao.livros.urlopen')
+# def test_executar_requisicao_levanta_excecao_do_tipo_http_error_com_decorator(duble_de_urlopen):
+#     fp = mock_open
+#     fp.close = Mock()
+#     duble_de_urlopen.side_effect = HTTPError(Mock(), Mock(), 'Mensagem de Error', Mock(), fp)
+#     with pytest.raises(HTTPError) as excecao:
+#         executar_requisicao('http://')
+#         assert 'Mensagem de Error' in str(excecao.value)
+
+
+def test_executar_requisicao_levanta_excecao_do_tipo_http_error_com_caplog(caplog):
     with patch('colecao.livros.urlopen',
-               duble_de_urlopen_que_levanta_execao_http_error):
-        with pytest.raises(HTTPError) as excecao:
-            executar_requisicao('http://')
-        assert 'Mensagem de Error' in str(excecao.value)
-
-
-@patch('colecao.livros.urlopen')
-def test_executar_requisicao_levanta_excecao_do_tipo_http_error_com_decorator(duble_de_urlopen):
-    fp = mock_open
-    fp.close = Mock()
-    duble_de_urlopen.side_effect = HTTPError(Dummy(), Dummy(), 'Mensagem de Error', Dummy(), fp)
-    with pytest.raises(HTTPError) as excecao:
-        executar_requisicao('http://')
-        assert 'Mensagem de Error' in str(excecao.value)
-
+               stub_de_urlopen_que_levanta_execao_http_error):
+        resultado = executar_requisicao('http://')
+        mensagem_de_erro = 'Mensagem de Error'
+        assert len(caplog.records) == 1
+        for registro in caplog.records:
+            assert mensagem_de_erro in registro.message
