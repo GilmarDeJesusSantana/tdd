@@ -123,3 +123,15 @@ def test_executar_requisicao_levanta_excecao_do_tipo_http_error_com_caplog(caplo
         assert len(caplog.records) == 1
         for registro in caplog.records:
             assert mensagem_de_erro in registro.message
+
+
+@patch('colecao.livros.urlopen')
+def test_executar_requisicao_loga_mensagem_de_erro_de_http_error(stub_urlopen, caplog):
+    fp = mock_open
+    fp.close = Mock()
+    stub_urlopen.side_effect = HTTPError(Mock(), Mock(), 'Mensagem de Error', Mock(), fp)
+
+    executar_requisicao('http://')
+    assert len(caplog.records) == 1
+    for registro in caplog.records:
+        assert 'Mensagem de Error' in registro.message
