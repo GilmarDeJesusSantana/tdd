@@ -2,41 +2,9 @@ from urllib.error import HTTPError
 
 import pytest
 
-from colecao.livros import consultar_livros, executar_requisicao
+from colecao.livros import consultar_livros, executar_requisicao, escrever_em_arquivo
 from unittest.mock import patch, mock_open, Mock
 from unittest import skip
-
-
-@skip('Vale quando consultar_livros estiver completo.')
-def test_consultar_livros_retorna_resultado_formato_string():
-    resultado = consultar_livros('Agatha Christie')
-    assert type(resultado) == str
-
-
-@skip
-def test_consultar_livros_chama_preparar_dados_para_requisicao_uma_vez_e_com_os_mesmos_parametros_de_consultar_livros():
-    with patch('colecao.livros.preparar_dados_para_requisicao') as duble:
-        consultar_livros('Agatha Christie')
-        duble.assert_called_once_with('Agatha Christie')
-
-
-@skip
-def test_consultar_livros_chama_obter_url_usando_como_parametro_o_retorno_de_preparar_dados_para_requisicao():
-    with patch('colecao.livros.preparar_dados_para_requisicao') as duble_preparar:
-        dados = {'autor': 'Agatha Christie'}
-        duble_preparar.return_value = dados
-        with patch('colecao.livros.obter_url') as duble_obter_url:
-            consultar_livros('Agatha Christie')
-            duble_obter_url.assert_called_once_with('https://buscador', dados)
-
-
-@skip
-def test_consultar_livros_chama_executar_requisicao_usando_retorno_obter_url():
-    with patch('colecao.livros.obter_url') as duble_obter_url:
-        duble_obter_url.return_value = 'https://buscador'
-        with patch('colecao.livros.executar_requisicao') as duble_executar_requisicao:
-            consultar_livros('Agatha Christie')
-            duble_executar_requisicao.assert_called_once_with('https://buscador')
 
 
 class StubHTTPResponse:
@@ -48,6 +16,40 @@ class StubHTTPResponse:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
+
+
+@patch('colecao.livros.urlopen', return_value=StubHTTPResponse())
+def test_consultar_livros_retorna_resultado_formato_string(stub_urlopen):
+    resultado = consultar_livros('Agatha Christie')
+    assert type(resultado) == str
+
+
+@patch('colecao.livros.urlopen', return_value=StubHTTPResponse())
+def test_consultar_livros_chama_preparar_dados_para_requisicao_uma_vez_e_com_os_mesmos_parametros_de_consultar_livros(
+        stub_urlopen):
+    with patch('colecao.livros.preparar_dados_para_requisicao') as spy_preparar_dados:
+        consultar_livros('Agatha Christie')
+        spy_preparar_dados.assert_called_once_with('Agatha Christie')
+
+
+@patch('colecao.livros.urlopen', return_value=StubHTTPResponse())
+def test_consultar_livros_chama_obter_url_usando_como_parametro_o_retorno_de_preparar_dados_para_requisicao(
+        stub_urlopen):
+    with patch('colecao.livros.preparar_dados_para_requisicao') as stub_preparar:
+        dados = {'autor': 'Agatha Christie'}
+        stub_preparar.return_value = dados
+        with patch('colecao.livros.obter_url') as spy_obter_url:
+            consultar_livros('Agatha Christie')
+            spy_obter_url.assert_called_once_with('https://buscador', dados)
+
+
+@patch('colecao.livros.urlopen', return_value=StubHTTPResponse())
+def test_consultar_livros_chama_executar_requisicao_usando_retorno_obter_url(stub_urlopen):
+    with patch('colecao.livros.obter_url') as stub_obter_url:
+        stub_obter_url.return_value = 'https://buscador'
+        with patch('colecao.livros.executar_requisicao') as spy_executar_requisicao:
+            consultar_livros('Agatha Christie')
+            spy_executar_requisicao.assert_called_once_with('https://buscador')
 
 
 def stub_de_urlopen(url, timeout):
@@ -135,3 +137,29 @@ def test_executar_requisicao_loga_mensagem_de_erro_de_http_error(stub_urlopen, c
     assert len(caplog.records) == 1
     for registro in caplog.records:
         assert 'Mensagem de Error' in registro.message
+
+
+class DubleLogging:
+    def __init__(self):
+        self._mensagens = []
+
+    def exception(self, mensagem):
+        self._mensagens.append(mensagem)
+
+    @property
+    def mensagens(self):
+        return self._mensagens
+
+
+def duble_makedirs(diretorio):
+    raise OSError(f'Não foi possível criar diretório {diretorio}')
+
+
+def test_escrever_em_arquivo_registra_excecao_que_nao_foi_possivel_criar_diretorio():
+    arquivo = '/tmp/arquivo'
+    conteudo = 'dados de livros'
+    duble_logging = DubleLogging()
+    with patch('colecao.livros.os.makedirs', duble_makedirs):
+        with patch('colecao.livros.logging', duble_logging):
+            escrever_em_arquivo(arquivo, conteudo)
+            assert 'Não foi possível criar diretório /tmp' in duble_logging.mensagens
