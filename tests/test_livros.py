@@ -3,7 +3,7 @@ from urllib.error import HTTPError
 import pytest
 
 from colecao.livros import consultar_livros, executar_requisicao, escrever_em_arquivo
-from unittest.mock import patch, mock_open, Mock
+from unittest.mock import patch, mock_open, Mock, MagicMock
 from unittest import skip
 
 
@@ -163,3 +163,51 @@ def test_escrever_em_arquivo_registra_excecao_que_nao_foi_possivel_criar_diretor
         with patch('colecao.livros.logging', duble_logging):
             escrever_em_arquivo(arquivo, conteudo)
             assert 'Não foi possível criar diretório /tmp' in duble_logging.mensagens
+
+
+@patch('colecao.livros.os.makedirs')
+@patch('colecao.livros.logging.exception')
+@patch('colecao.livros.open', side_effect=OSError)
+def teste_escrever_em_arquivo_registra_erro_ao_criar_o_arquivo(stub_open, spy_exception, stub_makedirs):
+    arquivo = '/bla/arquivo.json'
+    escrever_em_arquivo(arquivo, 'Dados do livros')
+    spy_exception.assert_called_once_with(f'Não foi possível criar arquivo {arquivo}')
+
+
+class SpyFileOpen:
+    def __init__(self):
+        self._conteudo = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def write(self, conteudo):
+        self._conteudo = conteudo
+
+@skip
+@patch('colecao.livros.open')
+def test_escrever_em_arquivo_chama_write(stub_de_open):
+    arquivo = '/tmp/arquivo'
+    conteudo = 'Conteudo do arquivo'
+    spy_de_file_open = SpyFileOpen()
+    stub_de_open.return_value = spy_de_file_open
+
+    escrever_em_arquivo(arquivo, conteudo)
+    assert spy_de_file_open._conteudo == conteudo \
+
+
+@patch('colecao.livros.open')
+def test_escrever_em_arquivo_chama_write(stub_de_open):
+    arquivo = '/tmp/arquivo'
+    conteudo = 'Conteudo do arquivo'
+    spy_de_file_open = MagicMock()
+    spy_de_file_open.__enter__.return_value = spy_de_file_open
+    spy_de_file_open.__exit__.return_value = None
+
+    stub_de_open.return_value = spy_de_file_open
+
+    escrever_em_arquivo(arquivo, conteudo)
+    spy_de_file_open.write.assert_called_once_with(conteudo)

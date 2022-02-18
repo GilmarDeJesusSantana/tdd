@@ -36,3 +36,8 @@ def escrever_em_arquivo(arquivo, conteudo):
     except OSError:
         logging.exception(f'Não foi possível criar diretório {diretorio}')
 
+    try:
+        with open(arquivo, 'w') as file_open:
+            file_open.write(conteudo)
+    except OSError as error:
+        logging.exception(f'Não foi possível criar arquivo {arquivo}')
